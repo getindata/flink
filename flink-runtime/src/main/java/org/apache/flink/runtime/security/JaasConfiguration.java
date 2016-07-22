@@ -18,8 +18,8 @@
 
 package org.apache.flink.runtime.security;
 
-import com.google.common.base.Strings;
 import org.apache.flink.annotation.Internal;
+import org.apache.flink.util.Preconditions;
 import org.apache.hadoop.security.authentication.util.KerberosUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -64,7 +64,7 @@ public class JaasConfiguration extends Configuration {
 
 		LOG.info("Initializing JAAS configuration instance. Parameters: {}, {}", keytab, principal);
 
-		if(!Strings.isNullOrEmpty(keytab) && !Strings.isNullOrEmpty(principal)) {
+		if(!Preconditions.isNullOrEmpty(keytab) && !Preconditions.isNullOrEmpty(principal)) {
 
 			if(IBM_JAVA) {
 				keytabKerberosOptions.put("useKeytab", prependFileUri(keytab));

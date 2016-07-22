@@ -18,10 +18,10 @@
 
 package org.apache.flink.runtime.security;
 
-import com.google.common.base.Strings;
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.util.Preconditions;
 import org.apache.hadoop.security.Credentials;
 import org.apache.hadoop.security.UserGroupInformation;
 import org.slf4j.Logger;
@@ -62,8 +62,7 @@ public class SecurityContext {
 
 	public static void install(SecurityConfiguration config) throws Exception {
 
-		/// perform static initialization of UGI, JAAS
-
+		// perform static initialization of UGI, JAAS
 		if(installedContext != null) {
 			LOG.warn("overriding previous security context");
 		}
@@ -79,7 +78,7 @@ public class SecurityContext {
 		// establish the UGI login user
 		UserGroupInformation.setConfiguration(config.hadoopConf);
 		UserGroupInformation loginUser;
-		if(UserGroupInformation.isSecurityEnabled() && config.keytab != null && !Strings.isNullOrEmpty(config.principal)) {
+		if(UserGroupInformation.isSecurityEnabled() && config.keytab != null && !Preconditions.isNullOrEmpty(config.principal)) {
 
 			String keytabPath = (new File(config.keytab)).getAbsolutePath();
 			// login with keytab
@@ -90,45 +89,37 @@ public class SecurityContext {
 			// supplement with any available tokens
 			String fileLocation = System.getenv(UserGroupInformation.HADOOP_TOKEN_FILE_LOCATION);
 			if(fileLocation != null) {
-				Method readTokenStorageFileMethod = null;
+				/*
+				 * Use reflection API since the API semantics are not available in Hadoop1 profile. Below APIs are
+				 * used in the context of reading the stored tokens from UGI.
+				 * Credentials cred = Credentials.readTokenStorageFile(new File(fileLocation), config.hadoopConf);
+				 * loginUser.addCredentials(cred);
+				*/
 				try {
-					readTokenStorageFileMethod = Credentials.class.getMethod("readTokenStorageFile", File.class, org.apache.hadoop.conf.Configuration.class);
-				} catch(NoSuchMethodException nme) {
-					LOG.warn("Could not find readTokenStorageFile() method from the Credentials class. May be Hadoop 1 implementation...");
-				}
-				if(readTokenStorageFileMethod != null) {
-					//Credentials cred = Credentials.readTokenStorageFile(new File(fileLocation), config.hadoopConf);
-					Credentials cred = (Credentials) readTokenStorageFileMethod.invoke(null,new File(fileLocation), config.hadoopConf);
-					Method addCredentialsMethod = null;
-					try {
-						addCredentialsMethod = UserGroupInformation.class.getMethod("addCredentials", Credentials.class);
-					} catch(NoSuchMethodException nme) {
-						LOG.warn("Could not find addCredentials() method from the UGI class. May be Hadoop 1 implementation...");
-					}
-
-					if(addCredentialsMethod != null) {
-						//loginUser.addCredentials(cred);
-						addCredentialsMethod.invoke(null,cred);
-					}
+					Method readTokenStorageFileMethod = Credentials.class.getMethod("readTokenStorageFile",
+																File.class, org.apache.hadoop.conf.Configuration.class);
+					Credentials cred = (Credentials) readTokenStorageFileMethod.invoke(null,new File(fileLocation),
+																							config.hadoopConf);
+					Method addCredentialsMethod = UserGroupInformation.class.getMethod("addCredentials",
+																						Credentials.class);
+					addCredentialsMethod.invoke(loginUser,cred);
+				} catch(NoSuchMethodException e) {
+					LOG.warn("Could not find method implementations in the shaded jar. Exception: {}", e);
 				}
 			}
 		} else {
 			// login with current user credentials (e.g. ticket cache)
-			Method loginUserFromSubjectMethod = null;
 			try {
-				loginUserFromSubjectMethod = UserGroupInformation.class.getMethod("loginUserFromSubject", Subject.class);
-			} catch(NoSuchMethodException nme) {
-				LOG.warn("Could not find loginUserFromSubject() method from the UGI class. May be Hadoop 1 implementation...");
-			}
-
-			//UserGroupInformation.loginUserFromSubject(null);
-			if(loginUserFromSubjectMethod != null) {
+				//Use reflection API to get the login user object
+				//UserGroupInformation.loginUserFromSubject(null);
+				Method loginUserFromSubjectMethod = UserGroupInformation.class.getMethod("loginUserFromSubject", Subject.class);
 				Subject subject = null;
 				loginUserFromSubjectMethod.invoke(null,subject);
+			} catch(NoSuchMethodException e) {
+				LOG.warn("Could not find method implementations in the shaded jar. Exception: {}", e);
 			}
 
 			loginUser = UserGroupInformation.getLoginUser();
-
 			// note that the stored tokens are read automatically
 		}
 
@@ -198,18 +189,18 @@ public class SecurityContext {
 
 		private void validate(String keytab, String principal) {
 
-			if(Strings.isNullOrEmpty(keytab) && !Strings.isNullOrEmpty(principal) ||
-					!Strings.isNullOrEmpty(keytab) && Strings.isNullOrEmpty(principal)) {
-				if(Strings.isNullOrEmpty(keytab)) {
+			if(Preconditions.isNullOrEmpty(keytab) && !Preconditions.isNullOrEmpty(principal) ||
+					!Preconditions.isNullOrEmpty(keytab) && Preconditions.isNullOrEmpty(principal)) {
+				if(Preconditions.isNullOrEmpty(keytab)) {
 					LOG.warn("Keytab is null or empty");
 				}
-				if(Strings.isNullOrEmpty(principal)) {
+				if(Preconditions.isNullOrEmpty(principal)) {
 					LOG.warn("Principal is null or empty");
 				}
 				throw new RuntimeException("Requires both keytab and principal to be provided");
 			}
 
-			if(!Strings.isNullOrEmpty(keytab)) {
+			if(!Preconditions.isNullOrEmpty(keytab)) {
 				File keytabFile = new File(keytab);
 				if(!keytabFile.exists() || !keytabFile.isFile()) {
 					LOG.warn("Not a valid keytab: {} file", keytab);

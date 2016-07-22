@@ -18,10 +18,10 @@
 
 package org.apache.flink.yarn;
 
-import com.google.common.base.Strings;
 import org.apache.commons.io.FileUtils;
 import org.apache.flink.client.CliFrontend;
 import org.apache.flink.configuration.ConfigConstants;
+import org.apache.flink.util.Preconditions;
 import org.apache.flink.yarn.cli.FlinkYarnSessionCli;
 import org.apache.flink.test.util.TestBaseUtils;
 import org.apache.flink.util.TestLogger;
@@ -391,7 +391,7 @@ public abstract class YarnTestBase extends TestLogger {
 			File flinkConfDirPath = findFile(flinkDistRootDir, new ContainsName(new String[]{"flink-conf.yaml"}));
 			Assert.assertNotNull(flinkConfDirPath);
 
-			if(!Strings.isNullOrEmpty(principal) && !Strings.isNullOrEmpty(keytab)) {
+			if(!Preconditions.isNullOrEmpty(principal) && !Preconditions.isNullOrEmpty(keytab)) {
 				//copy conf dir to test temporary workspace location
 				tempConfPathForSecureRun = tmp.newFolder("conf");
 
