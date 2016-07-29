@@ -64,7 +64,7 @@ under the License.
 
 		<dependency>
 			<groupId>org.apache.flink</groupId>
-			<artifactId>flink-connector-kafka-0.8_2.10</artifactId>
+			<artifactId>flink-connector-kafka-0.9_2.10</artifactId>
 			<version>${project.version}</version>
 		</dependency>
 
@@ -89,7 +89,12 @@ under the License.
 
 	<build>
 		<plugins>
-
+			<plugin>
+				<groupId>org.apache.felix</groupId>
+				<artifactId>maven-bundle-plugin</artifactId>
+				<inherited>true</inherited>
+				<extensions>true</extensions>
+			</plugin>
 			<!-- Scala Code Style, most of the configuration done via plugin management -->
 			<plugin>
 				<groupId>org.scalastyle</groupId>
